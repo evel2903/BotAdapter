@@ -1,0 +1,104 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Dannnnnnny
+
+//@version=5
+strategy(title="Trading Auto Boilerplate", overlay=true, default_qty_type = strategy.percent_of_equity, default_qty_value = 100, initial_capital=1000, currency=currency.USD)
+
+//Session=====================================================================
+fromDay = input.int(defval = 1, title = "From", minval = 1, maxval = 31, inline="1", group='Trade Session')
+fromMonth = input.int(defval = 1, title = "", minval = 1, maxval = 12,inline="1", group='Trade Session')
+fromYear = input.int(defval = 2010, title = "", minval = 1970, inline="1", group='Trade Session')
+toDay = input.int(defval = 31, title = "To", minval = 1, maxval = 31, inline="2", group='Trade Session')
+toMonth = input.int(defval = 12, title = "", minval = 1, maxval = 12, inline="2",group='Trade Session')
+toYear = input.int(defval = 2099, title = "", minval = 1970, inline="2",group='Trade Session')
+
+startDate = timestamp(fromYear, fromMonth, fromDay, 00, 00)
+finishDate = timestamp(toYear, toMonth, toDay, 00, 00)
+date_cond = time >= startDate and time <= finishDate
+
+i_sess = input.session("0100-2300", "Trade time", group='Trade Session')
+UTC_offset = input.int(3, title='UTC Offset', minval=-10, maxval=13, group='Trade Session')
+UTC_string = 'UTC' + (UTC_offset > 0 ? '+' : '') + (UTC_offset != 0 ? str.tostring(UTC_offset) : '')
+time_cond = time(timeframe.period, i_sess, UTC_string)
+is_trade_mon = input(true, title="Trade Monday?", group='Trade Session')
+is_trade_tue = input(true, title="Trade Tuesday?", group='Trade Session')
+is_trade_wed = input(true, title="Trade Wednesday?", group='Trade Session')
+is_trade_thu = input(true, title="Trade Thursday?", group='Trade Session')
+is_trade_fri = input(true, title="Trade Friday?", group='Trade Session')
+is_trade_sat = input(false, title="Trade Saturday?", group='Trade Session')
+is_trade_sun = input(false, title="Trade Sunday?", group='Trade Session')
+
+day_cond = false
+
+if(dayofweek(time_cond, UTC_string) == dayofweek.monday and is_trade_mon)
+    day_cond := true
+else if(dayofweek(time_cond, UTC_string) == dayofweek.tuesday and is_trade_tue)
+    day_cond := true
+else if(dayofweek(time_cond, UTC_string) == dayofweek.wednesday and is_trade_wed)
+    day_cond := true
+else if(dayofweek(time_cond, UTC_string) == dayofweek.thursday and is_trade_thu)
+    day_cond := true
+else if(dayofweek(time_cond, UTC_string) == dayofweek.friday and is_trade_fri)
+    day_cond := true
+else if(dayofweek(time_cond, UTC_string) == dayofweek.saturday and is_trade_sat)
+    day_cond := true
+else if(dayofweek(time_cond, UTC_string) == dayofweek.sunday and is_trade_sun)
+    day_cond := true
+
+bgcolor(time == time_cond and day_cond ? color.new(color.gray,95) : na)
+
+final_time_cond = time == time_cond and day_cond and date_cond
+//=====================================================================
+
+// Strategy logic======================================================
+length = 14
+overSold = 30
+overBought = 70
+middle = 50
+price = close
+vrsi = ta.rsi(price, length)
+
+longCondition = ta.crossover(vrsi, overSold)
+closeLongCondition =  ta.crossover(vrsi, middle)
+
+shortCondition = ta.crossunder(vrsi, overBought)
+closeShortCondition = ta.crossunder(vrsi, middle)
+//=====================================================================
+
+//TP===================================================================
+enable_TP1 = input(true, 'Enable Take profit 1', group='TP setting====================')
+TP1_limit = input.float(title="Take Profit 1 limit (%)", maxval=100, minval=0, step=0.1, defval=1, group='TP setting====================') / 100
+
+long_TP_1 = (strategy.position_size > 0 ? strategy.position_avg_price : close) * (1 + TP1_limit)
+plot(strategy.position_size > 0 ? long_TP_1 : na, style=plot.style_linebr, color=enable_TP1 ? color.rgb(162, 204, 164) : na, linewidth=2, title="Long TP1")
+
+short_TP_1 = (strategy.position_size < 0 ? strategy.position_avg_price : close) * (1 - TP1_limit)
+plot(strategy.position_size < 0 ? short_TP_1 : na, style=plot.style_linebr, color=enable_TP1 ?color.rgb(162, 204, 164) : na, linewidth=2, title="Short TP1")
+//=====================================================================
+
+//SL===================================================================
+enable_SL = input(title="Enable Stop Loss", defval=true, group='SL==================')
+stopLossPercentage = input.float(title="Stop Loss limit (%)", maxval=100, minval=0, defval=1, group='SL==================') / 100
+longStop = (strategy.position_size > 0 ? strategy.position_avg_price : close) * (1 - stopLossPercentage)
+shortStop = (strategy.position_size < 0 ? strategy.position_avg_price : close) * (1 + stopLossPercentage)
+plot(strategy.position_size > 0 and enable_SL ? longStop : na, style=plot.style_linebr, color=color.red, linewidth=2, title="Long Fixed SL")
+plot(strategy.position_size < 0 and enable_SL ? shortStop : na, style=plot.style_linebr, color=color.red, linewidth=2, title="Short Fixed SL")
+//=====================================================================
+
+sl_long_final_value = enable_SL ? longStop : na
+sl_short_final_value = enable_SL ? shortStop : na
+
+metadata_short = '{ "tp_price": "'+ str.tostring(short_TP_1) + '", "sl_price": "' + str.tostring(shortStop) + '"}'
+metadata_long = '{ "tp_price": "'+ str.tostring(long_TP_1) + '", "sl_price": "' + str.tostring(longStop) + '"}'
+
+if(final_time_cond)
+    strategy.entry("long", strategy.long, comment='entry', when=longCondition, alert_message=metadata_long)
+    strategy.entry("short", strategy.short, comment='entry', when=shortCondition, alert_message=metadata_short)
+    strategy.close("long", comment='full_close', when=closeLongCondition, alert_message='{}')
+    strategy.close("short", comment='full_close', when=closeShortCondition, alert_message='{}')
+if (strategy.position_size < 0)
+    tp_1_final_value = enable_TP1 ? short_TP_1 : na
+    strategy.exit("TP/SL", comment='TP/SL', limit=tp_1_final_value, qty_percent=100, stop=sl_short_final_value, alert_message='{}')
+if (strategy.position_size > 0)
+    tp_1_final_value = enable_TP1 ? long_TP_1 : na
+    strategy.exit("TP/SL", comment='TP/SL', limit=tp_1_final_value, qty_percent=100, stop=sl_long_final_value, alert_message='{}')
