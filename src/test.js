@@ -22,12 +22,7 @@ function addOrdered(apiRes){
 function findOrderedBySymbol(symbol) {
 	return ORDERED_LIST.find(item => item.symbol == symbol) || null;
 }
-function removeOrderedBySymbol(symbol) {
-	let index = ORDERED_LIST.findIndex(item => item.symbol == symbol);
-	if (index !== -1) {
-		ORDERED_LIST.splice(index, 1);
-	}
-}
+
 async function getUSDTBalance(){
     try {
         const resApi =  await binance.futuresBalance();
@@ -54,9 +49,7 @@ async function openOrderPosition(request){
     const order_price = request.strategy.order_price
     try {
         let telegramMessage = ''
-        const closeFlag = await closeOrderPosition(symbol)
-		if(closeFlag == false) return
-		removeOrderedBySymbol(symbol)
+        await closeOrderPosition(symbol)
         if(order_action == 'buy'){
             const resApi = await binance.futuresBuy(symbol, order_contracts, order_price)
             console.log(resApi);
@@ -93,12 +86,11 @@ async function openOrderPosition(request){
 }
 async function closeOrderPosition(symbol){
     try {
-		let rst = false
         let telegramMessage = ''
         const ordered = findOrderedBySymbol(symbol)
         if (ordered == null) {
             //Todo: Bỏ qua nếu symbol chưa được Order
-            rst = true
+            return
         }
         else{
             //Todo: Xử lý nếu symbol đã được Order
@@ -109,39 +101,19 @@ async function closeOrderPosition(symbol){
                 const resApi2 = ordered.side == 'SELL' ? await binance.futuresMarketBuy(symbol) : await binance.futuresMarketSell(symbol)
                 if(resApi2.code != undefined){
                     telegramMessage = `Lệnh: ĐÓNG VỊ THẾ [${ordered.side}] [${symbol}] với số lượng [${ordered.origQty} ${symbol.slice(0, -4)}] tại giá ${ordered.price} **THẤT BẠI** Lỗi [${resApi2.msg}]`
-					rst =  false
                 }
                 else{
                     telegramMessage = `Lệnh: ĐÓNG VỊ THẾ [${ordered.side}] [${symbol}] với số lượng [${ordered.origQty} ${symbol.slice(0, -4)}] tại giá ${ordered.price} **THÀNH CÔNG**`
-					rst =  true
                 } 
             }
             else{
                 telegramMessage = `Lệnh: ORDER [${ordered.side}] [${symbol}] với số lượng [${ordered.origQty} ${symbol.slice(0, -4)}] tại giá ${ordered.price} được hủy **THÀNH CÔNG**`
-				rst =  true
             }
         }
         sendTelegramMessage(telegramMessage)
-		return rst
     } catch (error) {
         console.error(`closeOrderPosition$: ${error}`);
         sendTelegramMessage(`closeOrderPosition$: ${error}`)
-		return false
     }
 
 }
-
-export const handleWebhook = async (req, res) => {
-	try {
-		const alert = req.body
-		openOrderPosition(alert)
-
-	}
-	catch (error) {
-		console.error(`handleWebhook$: ${error}`);
-        sendTelegramMessage(`handleWebhook$: ${error}`)
-	}
-	return res.json({ message: "ok" });
-};
-
-
