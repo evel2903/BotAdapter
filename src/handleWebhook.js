@@ -50,15 +50,16 @@ async function getUSDTPnl(){
 async function openOrderPosition(request){
     const order_action = request.strategy.order_action
     const symbol = request.symbol
-    const order_contracts = request.strategy.order_contracts
-    const order_price = request.strategy.order_price
+    const order_price = Number(`${request.strategy.order_price}`.substring(0, 5))
+    const order_contracts = order_price < 10 ? Number(request.strategy.order_contracts).toFixed(0) : Number(request.strategy.order_contracts).toFixed(1)
+    console.log('order_price', order_price)
     try {
         let telegramMessage = ''
         const closeFlag = await closeOrderPosition(symbol)
 		if(closeFlag == false) return
 		removeOrderedBySymbol(symbol)
         if(order_action == 'buy'){
-            const resApi = await binance.futuresBuy(symbol, order_contracts, order_price)
+            const resApi = await binance.futuresBuy(symbol, order_contracts, order_price, {timeInForce: 'GTC', type: 'LIMIT'})
             console.log(resApi);
             if(resApi.code != undefined){
                 //Todo: Gửi lệnh thất bại
@@ -72,7 +73,7 @@ async function openOrderPosition(request){
             }
         }
         else{
-            const resApi = await binance.futuresSell(symbol, order_contracts, order_price)
+            const resApi = await binance.futuresSell(symbol, order_contracts, order_price, {timeInForce: 'GTC', type: 'LIMIT'})
             console.log(resApi);
             if(resApi.code != undefined){
                 //Todo: Gửi lệnh thất bại
@@ -85,7 +86,7 @@ async function openOrderPosition(request){
                 telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${order_price} được mở **THÀNH CÔNG**`
             }
         }
-        sendTelegramMessage(telegramMessage)
+        await sendTelegramMessage(telegramMessage)
     } catch (error) {
         console.error(`openOrderPosition$: ${error}`);
         sendTelegramMessage(`openOrderPosition$: ${error}`)
@@ -103,10 +104,11 @@ async function closeOrderPosition(symbol){
         else{
             //Todo: Xử lý nếu symbol đã được Order
             const resApi = await binance.futuresCancel( symbol, {orderId: ordered.orderId})
-            console.log(resApi)
+            console.log('closeOrderPosition resApi',resApi)
             if(resApi.code != undefined){
                 //Todo: Gửi lệnh hủy thất bại ** Lệnh này đã dính Entry
-                const resApi2 = ordered.side == 'SELL' ? await binance.futuresMarketBuy(symbol) : await binance.futuresMarketSell(symbol)
+                const resApi2 = ordered.side == 'SELL' ? await binance.futuresMarketBuy(symbol, ordered.origQty) : await binance.futuresMarketSell(symbol, ordered.origQty)
+                console.log('closeOrderPosition resApi2', resApi2);
                 if(resApi2.code != undefined){
                     telegramMessage = `Lệnh: ĐÓNG VỊ THẾ [${ordered.side}] [${symbol}] với số lượng [${ordered.origQty} ${symbol.slice(0, -4)}] tại giá ${ordered.price} **THẤT BẠI** Lỗi [${resApi2.msg}]`
 					rst =  false
