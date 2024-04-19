@@ -26,6 +26,10 @@ function findOrderedBySymbol(symbol) {
 async function getUSDTBalance(){
     try {
         const resApi =  await binance.futuresBalance();
+        if(resApi.code != undefined){
+            console.log(`getUSDTBalance$: ${resApi.msg}`);
+            return 0
+        }
         return resApi.find(item => item.asset == 'USDT').balance
         
     } catch (error) {
@@ -36,6 +40,10 @@ async function getUSDTBalance(){
 async function getUSDTPnl(){
     try {
         const resApi =  await binance.futuresBalance();
+        if(resApi.code != undefined){
+            console.log(`getUSDTBalance$: ${resApi.msg}`);
+            return 0
+        }
         return resApi.find(item => item.asset == 'USDT').crossUnPnl
     } catch (error) {
         console.error(`getUSDTBalance$: ${error}`);
@@ -117,3 +125,5 @@ async function closeOrderPosition(symbol){
     }
 
 }
+
+console.log(await getUSDTBalance())

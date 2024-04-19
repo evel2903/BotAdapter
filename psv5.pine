@@ -1,0 +1,120 @@
+//@version=5
+//@author=SangLx
+
+strategy('Heikin Ashi RSI v4', 'HARSI v4', false, format.price, 2)
+
+//====== TOOLTIPS ======//
+
+string TT_HARSI = 'Thời kỳ để tính chỉ số RSI được sử dụng để tạo ra các nến. Điều này riêng biệt từ độ dài biểu đồ/histogram RSI.'
+
+string TT_PBIAS = 'Tính năng làm mịn cho giá mở của các nến HARSI.' + '\n\nTăng độ chệch về giá mở trước đó có thể' + ' giúp cung cấp một cách hiển thị mạnh mẽ hơn về sức mạnh của xu hướng.' + '\n\n** Bằng cách thay đổi các giá Mở, Giá Cao và Giá Thấp cũng có thể' + ' bị biến dạng - tuy nhiên Giá Đóng cửa sẽ không thay đổi.'
+
+string TT_SMRSI = 'Tùy chọn này làm mịn RSI một cách tương tự như giá mở của HA' + ', nhưng sử dụng giá trị RSI thời gian thực thay vì giá trị đóng cửa trước đó.'
+
+string TT_STOCH = 'Sử dụng RSI được tạo ra bởi các thiết lập trên, và do đó' + ' sẽ bị ảnh hưởng bởi tùy chọn làm mịn.'
+
+string TT_STFIT = 'Điều chỉnh tỷ lệ tỷ lệ dọc của đường stochastic, có thể giúp' + ' ngăn chặn biến dạng dữ liệu khác trong kênh.' + '\n\nKhông ảnh hưởng qua các điều kiện chéo.'
+
+// -- Candle config
+
+string GROUP_CAND = 'Config » HARSI Candles'
+i_lenHARSI = input.int(14, 'Length', group=GROUP_CAND, minval=1, tooltip=TT_HARSI)
+i_smoothing = input.int(1, 'Open Smoothing', group=GROUP_CAND, minval=1, maxval=100, tooltip=TT_PBIAS)
+string INLINE_COL = 'Colour Pallette'
+i_colUp = input.color(color.teal, 'Colour Pallette  ', group=GROUP_CAND, inline=INLINE_COL)
+i_colDown = input.color(color.red, ' ', group=GROUP_CAND, inline=INLINE_COL)
+i_colWick = input.color(color.gray, ' ', group=GROUP_CAND, inline=INLINE_COL)
+
+// -- RSI plot config
+
+string GROUP_PLOT = 'Config » RSI Plot'
+i_source = input.source(ohlc4, 'Source', group=GROUP_PLOT)
+i_lenRSI = input.int(7, 'Length', group=GROUP_PLOT, minval=1)
+i_mode = input.bool(true, 'Smoothed Mode RSI?', group=GROUP_PLOT, tooltip=TT_SMRSI)
+i_showPlot = input.bool(true, 'Show RSI Plot?', group=GROUP_PLOT)
+i_showHist = input.bool(true, 'Show RSI Histogram?', group=GROUP_PLOT)
+
+// -- Stochastic RSI plots config
+
+string GROUP_STOCH = 'Config » Stochastic RSI Plot'
+string INLINE_STDS = 'Stoch Draw States'
+i_showStoch = input.bool(false, 'Show Stochastic? ', group=GROUP_STOCH, inline=INLINE_STDS, tooltip=TT_STOCH)
+i_ribbon = input.bool(true, 'Ribbon?', group=GROUP_STOCH, inline=INLINE_STDS)
+i_smoothK = input.int(3, 'Smoothing K', group=GROUP_STOCH, minval=1)
+i_smoothD = input.int(3, 'Smoothing D', group=GROUP_STOCH, minval=1)
+i_stochLen = input.int(14, 'Stochastic Length', group=GROUP_STOCH, minval=1)
+i_stochFit = input.int(80, 'Stoch Scaling %', group=GROUP_STOCH, minval=1, maxval=100, tooltip=TT_STFIT)
+
+// -- Channel OB/OS config
+
+string GROUP_CHAN = 'Config » OB/OS Boundaries'
+i_upper = input.int(20, 'OB', group=GROUP_CHAN, inline='OB', minval=1, maxval=50)
+i_upperx = input.int(30, 'OB Extreme', group=GROUP_CHAN, inline='OB', minval=1, maxval=50)
+
+i_lower = input.int(-20, 'OS', group=GROUP_CHAN, inline='OS', minval=-50, maxval=-1)
+i_lowerx = input.int(-30, 'OS Extreme', group=GROUP_CHAN, inline='OS', minval=-50, maxval=-1)
+
+//  zero median rsi helper function, just subtracts 50.
+f_zrsi(_source, _length) =>
+    ta.rsi(_source, _length) - 50
+
+//  zero median stoch helper function, subtracts 50 and includes % scaling
+f_zstoch(_source, _length, _smooth, _scale) =>
+    float _zstoch = ta.stoch(_source, _source, _source, _length) - 50
+    float _smoothed = ta.sma(_zstoch, _smooth)
+    float _scaled = _smoothed / 100 * _scale
+    _scaled
+
+//  mode selectable rsi function for standard, or smoothed output
+f_rsi(_source, _length, _mode) =>
+
+    //  get base rsi
+    float _zrsi = f_zrsi(_source, _length)
+
+    //  smoothing in a manner similar to HA open, but rather using the realtime
+    //  rsi in place of the prior close value.
+    var float _smoothed = na
+    _smoothed := na(_smoothed[1]) ? _zrsi : (_smoothed[1] + _zrsi) / 2
+
+    //  return the requested mode
+    _mode ? _smoothed : _zrsi
+
+//  RSI Heikin-Ashi generation function
+f_rsiHeikinAshi(_length) =>
+
+    //  get close rsi
+    float _closeRSI = f_zrsi(close, _length)
+
+    //  emulate "open" simply by taking the previous close rsi value
+    float _openRSI = nz(_closeRSI[1], _closeRSI)
+
+    //  the high and low are tricky, because unlike "high" and "low" by
+    //  themselves, the RSI results can overlap each other. So first we just go
+    //  ahead and get the raw results for high and low, and then..
+    float _highRSI_raw = f_zrsi(high, _length)
+    float _lowRSI_raw = f_zrsi(low, _length)
+    //  ..make sure we use the highest for high, and lowest for low
+    float _highRSI = math.max(_highRSI_raw, _lowRSI_raw)
+    float _lowRSI = math.min(_highRSI_raw, _lowRSI_raw)
+
+    //  ha calculation for close
+    float _close = (_openRSI + _highRSI + _lowRSI + _closeRSI) / 4
+
+    //  ha calculation for open, standard, and smoothed/lagged
+    var float _open = na
+    _open := na(_open[i_smoothing]) ? (_openRSI + _closeRSI) / 2 : (_open[1] * i_smoothing + _close[1]) / (i_smoothing + 1)
+
+    //  ha high and low min-max selections
+    float _high = math.max(_highRSI, math.max(_open, _close))
+    float _low = math.min(_lowRSI, math.min(_open, _close))
+
+    //  return the OHLC values
+    [_open, _high, _low, _close]
+
+//  get OHLC values to use in the plotcandle()
+[O, H, L, C] = f_rsiHeikinAshi(i_lenHARSI)
+// -- PEANUT
+if O > i_upper
+    strategy.entry('Short', strategy.short)
+if O < i_lower
+    strategy.entry('Long', strategy.long)

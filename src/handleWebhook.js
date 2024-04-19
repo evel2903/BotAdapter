@@ -31,7 +31,7 @@ function removeOrderedBySymbol(symbol) {
 async function getUSDTBalance(){
     try {
         const resApi =  await binance.futuresBalance();
-        return resApi.find(item => item.asset == 'USDT').balance
+        return Number(resApi.find(item => item.asset == 'USDT').balance)
         
     } catch (error) {
         console.error(`getUSDTBalance$: ${error}`);
@@ -41,55 +41,70 @@ async function getUSDTBalance(){
 async function getUSDTPnl(){
     try {
         const resApi =  await binance.futuresBalance();
-        return resApi.find(item => item.asset == 'USDT').crossUnPnl
+        return Number(resApi.find(item => item.asset == 'USDT').crossUnPnl)
+    } catch (error) {
+        console.error(`getUSDTBalance$: ${error}`);
+        return 0
+    }
+}
+async function orderContractsCalc(price){
+    
+    try {
+        const balance =  await getUSDTBalance()
+        const percentageOfAssetsForAnOrder = process.env.PERCENTAGE_OF_ASSETS_FOR_AN_ORDER
+        const defaultLeverage = process.env.DEFAULT_LEVERAGE
+        const positionValue = (balance / 100) * percentageOfAssetsForAnOrder * defaultLeverage
+        
+        return Math.floor(positionValue / price)
     } catch (error) {
         console.error(`getUSDTBalance$: ${error}`);
         return 0
     }
 }
 async function openOrderPosition(request){
-    const order_action = request.strategy.order_action
+    const order_action = request.order_action
     const symbol = request.symbol
-    const order_price = Number(`${request.strategy.order_price}`.substring(0, 5))
-    const order_contracts = order_price < 10 ? Number(request.strategy.order_contracts).toFixed(0) : Number(request.strategy.order_contracts).toFixed(1)
-    console.log('order_price', order_price)
+    const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)))
+    const order_contracts = await orderContractsCalc(price)
+
     try {
         let telegramMessage = ''
         const closeFlag = await closeOrderPosition(symbol)
 		if(closeFlag == false) return
 		removeOrderedBySymbol(symbol)
         if(order_action == 'buy'){
-            const resApi = await binance.futuresBuy(symbol, order_contracts, order_price, {timeInForce: 'GTC', type: 'LIMIT'})
+            console.log(symbol);
+            const resApi = await binance.futuresBuy(symbol, order_contracts, price, {timeInForce: 'GTC', type: 'LIMIT'})
             console.log(resApi);
             if(resApi.code != undefined){
                 //Todo: Gửi lệnh thất bại
-                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${order_price} được mở **THẤT BẠI** Lỗi [${resApi.msg}]`
+                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THẤT BẠI** Lỗi [${resApi.msg}]`
                 console.error(`Lỗi: ${resApi.msg}`)
             }
             else{
                 //Todo: Gửi lệnh thành công
                 addOrdered(resApi)
-                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${order_price} được mở **THÀNH CÔNG**`
+                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THÀNH CÔNG**`
             }
         }
         else{
-            const resApi = await binance.futuresSell(symbol, order_contracts, order_price, {timeInForce: 'GTC', type: 'LIMIT'})
+            const resApi = await binance.futuresSell(symbol, order_contracts, price, {timeInForce: 'GTC', type: 'LIMIT'})
             console.log(resApi);
             if(resApi.code != undefined){
                 //Todo: Gửi lệnh thất bại
-                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${order_price} được mở **THẤT BẠI** Lỗi [${resApi.msg}]`
+                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THẤT BẠI** Lỗi [${resApi.msg}]`
                 console.error(`Lỗi: ${resApi.msg}`)
             }
             else{
                 //Todo: Gửi lệnh thành công
                 addOrdered(resApi)
-                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${order_price} được mở **THÀNH CÔNG**`
+                telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THÀNH CÔNG**`
             }
         }
         await sendTelegramMessage(telegramMessage)
     } catch (error) {
         console.error(`openOrderPosition$: ${error}`);
-        sendTelegramMessage(`openOrderPosition$: ${error}`)
+        await sendTelegramMessage(`openOrderPosition$: ${error}`)
     }
 }
 async function closeOrderPosition(symbol){
@@ -99,6 +114,11 @@ async function closeOrderPosition(symbol){
         const ordered = findOrderedBySymbol(symbol)
         if (ordered == null) {
             //Todo: Bỏ qua nếu symbol chưa được Order
+            const resApi = await binance.futuresLeverage(symbol, process.env.DEFAULT_LEVERAGE)
+            if(resApi.code == undefined){
+                telegramMessage = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${process.env.DEFAULT_LEVERAGE}`
+            }
+            await sendTelegramMessage(telegramMessage)
             rst = true
         }
         else{
@@ -123,11 +143,11 @@ async function closeOrderPosition(symbol){
 				rst =  true
             }
         }
-        sendTelegramMessage(telegramMessage)
+        await (telegramMessage)
 		return rst
     } catch (error) {
         console.error(`closeOrderPosition$: ${error}`);
-        sendTelegramMessage(`closeOrderPosition$: ${error}`)
+        await sendTelegramMessage(`closeOrderPosition$: ${error}`)
 		return false
     }
 
@@ -141,7 +161,7 @@ export const handleWebhook = async (req, res) => {
 	}
 	catch (error) {
 		console.error(`handleWebhook$: ${error}`);
-        sendTelegramMessage(`handleWebhook$: ${error}`)
+        await sendTelegramMessage(`handleWebhook$: ${error}`)
 	}
 	return res.json({ message: "ok" });
 };
