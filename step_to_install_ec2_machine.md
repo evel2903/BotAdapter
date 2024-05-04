@@ -20,7 +20,7 @@ sudo npm install pm2@latest -g
 ```
 6. Upgrade nodejs:
 ```
-curl -sL https://deb.nodesource.com/setup_16.x | sudo bash - 
+curl -sL https://deb.nodesource.com/setup_20.x | sudo bash - 
 sudo apt install -y nodejs
 ```
 7. Install Nginx:

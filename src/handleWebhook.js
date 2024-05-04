@@ -31,6 +31,7 @@ function removeOrderedBySymbol(symbol) {
 async function getUSDTBalance(){
     try {
         const resApi =  await binance.futuresBalance();
+        console.log(resApi);
         return Number(resApi.find(item => item.asset == 'USDT').balance)
         
     } catch (error) {
