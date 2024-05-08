@@ -8,7 +8,8 @@ sudo apt install git
 ```
 3. Install node:
 ```
-sudo apt install nodejs
+curl -sL https://deb.nodesource.com/setup_20.x | sudo bash - 
+sudo apt install -y nodejs
 ```
 4. Install npm
 ```
@@ -18,22 +19,17 @@ sudo apt install npm
 ```
 sudo npm install pm2@latest -g
 ```
-6. Upgrade nodejs:
-```
-curl -sL https://deb.nodesource.com/setup_20.x | sudo bash - 
-sudo apt install -y nodejs
-```
 7. Install Nginx:
 ```
 sudo apt install nginx
 ```
 8. Clone the repo: (replace with your repo)
 ```
-git clone https://github.com/danny-dang/tradingview-binance-auto-boilerplate.git
+git clone https://github.com/evel2903/BotAdapter
 ```
 9. Install dependencies: (Replace with your folder)
 ```
-cd tradingview-binance-auto-boilerplate
+cd BotAdapter
 npm install
 ```
 10. Run the server using pm2
@@ -54,7 +50,7 @@ server {
     listen [::]:80 default_server;
 
     location / {
-        proxy_pass http://localhost:3001;
+        proxy_pass http://localhost:3000;
     }
 }
 ```
