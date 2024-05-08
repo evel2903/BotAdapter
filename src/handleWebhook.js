@@ -31,7 +31,7 @@ function removeOrderedBySymbol(symbol) {
 async function getUSDTBalance(){
     try {
         const resApi =  await binance.futuresBalance();
-        console.log(resApi);
+        console.log(Number(resApi.find(item => item.asset == 'USDT').balance));
         return Number(resApi.find(item => item.asset == 'USDT').balance)
         
     } catch (error) {
@@ -55,7 +55,6 @@ async function orderContractsCalc(price){
         const percentageOfAssetsForAnOrder = process.env.PERCENTAGE_OF_ASSETS_FOR_AN_ORDER
         const defaultLeverage = process.env.DEFAULT_LEVERAGE
         const positionValue = (balance / 100) * percentageOfAssetsForAnOrder * defaultLeverage
-        
         return Math.floor(positionValue / price)
     } catch (error) {
         console.error(`getUSDTBalance$: ${error}`);
@@ -67,7 +66,7 @@ async function openOrderPosition(request){
     const symbol = request.symbol
     const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)))
     const order_contracts = await orderContractsCalc(price)
-
+    console.log(request);
     try {
         let telegramMessage = ''
         const closeFlag = await closeOrderPosition(symbol)
@@ -144,7 +143,7 @@ async function closeOrderPosition(symbol){
 				rst =  true
             }
         }
-        await (telegramMessage)
+        await sendTelegramMessage(telegramMessage)
 		return rst
     } catch (error) {
         console.error(`closeOrderPosition$: ${error}`);
@@ -157,7 +156,7 @@ async function closeOrderPosition(symbol){
 export const handleWebhook = async (req, res) => {
 	try {
 		const alert = req.body
-		openOrderPosition(alert)
+		await openOrderPosition(alert)
 
 	}
 	catch (error) {
