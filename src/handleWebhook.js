@@ -28,48 +28,18 @@ function removeOrderedBySymbol(symbol) {
 		ORDERED_LIST.splice(index, 1);
 	}
 }
-async function getUSDTBalance(){
-    try {
-        const resApi =  await binance.futuresBalance();
-        console.log(Number(resApi.find(item => item.asset == 'USDT').balance));
-        return Number(resApi.find(item => item.asset == 'USDT').balance)
-        
-    } catch (error) {
-        console.error(`getUSDTBalance$: ${error}`);
-        return 0
-    }
-}
-async function getUSDTPnl(){
-    try {
-        const resApi =  await binance.futuresBalance();
-        return Number(resApi.find(item => item.asset == 'USDT').crossUnPnl)
-    } catch (error) {
-        console.error(`getUSDTBalance$: ${error}`);
-        return 0
-    }
-}
-async function orderContractsCalc(price){
-    
-    try {
-        const balance =  await getUSDTBalance()
-        const percentageOfAssetsForAnOrder = process.env.PERCENTAGE_OF_ASSETS_FOR_AN_ORDER
-        const defaultLeverage = process.env.DEFAULT_LEVERAGE
-        const positionValue = (balance / 100) * percentageOfAssetsForAnOrder * defaultLeverage
-        return Math.floor(positionValue / price)
-    } catch (error) {
-        console.error(`getUSDTBalance$: ${error}`);
-        return 0
-    }
-}
+
 async function openOrderPosition(request){
     const order_action = request.order_action
     const symbol = request.symbol
     const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)))
-    const order_contracts = await orderContractsCalc(price)
-    console.log(request);
+    const position_size_usdt = request.position_size_usdt
+    const leverage = request.leverage
+
+    const order_contracts = Math.floor((position_size_usdt * leverage) / price)
     try {
         let telegramMessage = ''
-        const closeFlag = await closeOrderPosition(symbol)
+        const closeFlag = await closeOrderPosition(symbol, leverage)
 		if(closeFlag == false) return
 		removeOrderedBySymbol(symbol)
         if(order_action == 'buy'){
@@ -107,16 +77,16 @@ async function openOrderPosition(request){
         await sendTelegramMessage(`openOrderPosition$: ${error}`)
     }
 }
-async function closeOrderPosition(symbol){
+async function closeOrderPosition(symbol,  leverage = 1) {
     try {
 		let rst = false
         let telegramMessage = ''
         const ordered = findOrderedBySymbol(symbol)
         if (ordered == null) {
             //Todo: Bỏ qua nếu symbol chưa được Order
-            const resApi = await binance.futuresLeverage(symbol, process.env.DEFAULT_LEVERAGE)
+            const resApi = await binance.futuresLeverage(symbol, leverage)
             if(resApi.code == undefined){
-                telegramMessage = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${process.env.DEFAULT_LEVERAGE}`
+                telegramMessage = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${leverage}`
             }
             await sendTelegramMessage(telegramMessage)
             rst = true
