@@ -33,6 +33,7 @@ async function openOrderPosition(request){
     const order_action = request.order_action
     const symbol = request.symbol
     const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)))
+    const callbackRate = Number(request.callbackRate)
     const position_size_usdt = request.position_size_usdt
     const leverage = request.leverage
 
@@ -53,6 +54,8 @@ async function openOrderPosition(request){
             }
             else{
                 //Todo: Gửi lệnh thành công
+                const trailingStopRes = await binance.futuresSell(symbol, order_contracts, price, {timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate})
+                console.log(trailingStopRes);
                 addOrdered(resApi)
                 telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THÀNH CÔNG**`
             }
@@ -67,6 +70,8 @@ async function openOrderPosition(request){
             }
             else{
                 //Todo: Gửi lệnh thành công
+                const trailingStopRes = await binance.futuresBuy(symbol, order_contracts, price, {timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate})
+                console.log(trailingStopRes);
                 addOrdered(resApi)
                 telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THÀNH CÔNG**`
             }
@@ -88,7 +93,6 @@ async function closeOrderPosition(symbol,  leverage = 1) {
             if(resApi.code == undefined){
                 telegramMessage = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${leverage}`
             }
-            await sendTelegramMessage(telegramMessage)
             rst = true
         }
         else{
