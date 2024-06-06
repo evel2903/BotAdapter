@@ -9,9 +9,10 @@ binance.options({
 });
 
 let ORDERED_LIST = []
-function addOrdered(apiRes){
+function addOrdered(apiRes, orderTrailingStopId){
     let newOrdered = {
         orderId: apiRes.orderId,
+        orderTrailingStopId: orderTrailingStopId,
 		symbol: apiRes.symbol,
 		origQty: Number(apiRes.origQty),
 		side: apiRes.side,
@@ -28,6 +29,7 @@ function removeOrderedBySymbol(symbol) {
 		ORDERED_LIST.splice(index, 1);
 	}
 }
+
 
 async function openOrderPosition(request){
     const order_action = request.order_action
@@ -56,7 +58,7 @@ async function openOrderPosition(request){
                 //Todo: Gửi lệnh thành công
                 const trailingStopRes = await binance.futuresSell(symbol, order_contracts, price, {timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate})
                 console.log(trailingStopRes);
-                addOrdered(resApi)
+                addOrdered(resApi, trailingStopRes.orderId)
                 telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THÀNH CÔNG**`
             }
         }
@@ -72,7 +74,7 @@ async function openOrderPosition(request){
                 //Todo: Gửi lệnh thành công
                 const trailingStopRes = await binance.futuresBuy(symbol, order_contracts, price, {timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate})
                 console.log(trailingStopRes);
-                addOrdered(resApi)
+                addOrdered(resApi, trailingStopRes.orderId)
                 telegramMessage = `Lệnh: ORDER [${order_action}] [${symbol}] với số lượng [${order_contracts} ${symbol.slice(0, -4)}] tại giá ${price} được mở **THÀNH CÔNG**`
             }
         }
@@ -98,6 +100,7 @@ async function closeOrderPosition(symbol,  leverage = 1) {
         else{
             //Todo: Xử lý nếu symbol đã được Order
             const resApi = await binance.futuresCancel( symbol, {orderId: ordered.orderId})
+            const resApi2 = await binance.futuresCancel( symbol, {orderId: ordered.orderTrailingStopId})
             console.log('closeOrderPosition resApi',resApi)
             if(resApi.code != undefined){
                 //Todo: Gửi lệnh hủy thất bại ** Lệnh này đã dính Entry
