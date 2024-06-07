@@ -1,5 +1,8 @@
+import { format, toZonedTime } from 'date-fns-tz';
+
 function formatVNDateTime(isoDate) {
-    const dateObj = new Date(isoDate);
+    const timeZone = 'Asia/Ho_Chi_Minh'; // Múi giờ Việt Nam
+    const dateObj = toZonedTime(new Date(isoDate), timeZone);
 
     const day = dateObj.getDate().toString().padStart(2, '0');
     const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
