@@ -64,15 +64,17 @@ async function openPosition(request) {
     const position_size_usdt = request.position_size_usdt
     const leverage = request.leverage
     const order_contracts = Math.floor((position_size_usdt * leverage) / price)
+    const activationPrice = (price + (order_action == 'buy' ? (price * leverage) / 100 : -(price * leverage) / 100)).toString().substring(0, Number(request.sizePricePrecision))
+    console.log(activationPrice)
     try {
         await closePosition(symbol)
         if (order_action == 'buy') {
-            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
-            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate })
+            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' }).then(res => console.log('ORDER SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('ORDER ERROR', {REQUEST: request, ERROR: err}))
+            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice}).then(res => console.log('TRAILING STOP SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('TRAILING STOP ERROR', {REQUEST: request, ERROR: err}))
         }
         else {
-            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
-            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate })
+            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' }).then(res => console.log('ORDER SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('ORDER ERROR', {REQUEST: request, ERROR: err}))
+            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice }).then(res => console.log('TRAILING STOP SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('TRAILING STOP ERROR', {REQUEST: request, ERROR: err}))
         }
         await sendTelegramMessage(`Mở vị thế [${(order_action == 'buy' ? 'LONG' : 'SHORT')}] ${symbol}`);
     } catch (error) {
