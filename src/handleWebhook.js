@@ -9,6 +9,30 @@ binance.options({
 });
 
 /**
+ * Change leverage for a symbol in the futures market.
+ *
+ * @param {string} symbol - The symbol for which to change the leverage.
+ * @param {number} leverage - The leverage value to set.
+ */
+async function changeLeverage(symbol, leverage) {
+    try {
+        await binance.futuresLeverage(symbol, leverage).then( async res => {
+            let message = ''
+            if(res.code == undefined){
+                message = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${leverage}`  
+            }
+            else{
+                message = `Đòn bẩy cặp giao dịch ${symbol} đổi thành x${leverage} thất bại`
+            }
+            await sendTelegramMessage(message)
+            console.log('CHANGE LEVERAGE SUSSCES', {REQUEST: {symbol: symbol, leverage: leverage}, RESPONSE: res})
+        }).catch(err => console.log('CHANGE LEVERAGE ERROR', {REQUEST: {symbol: symbol, leverage: leverage}, ERROR: err}))
+    } catch (error) {
+        console.error(`Error setting leverage for ${symbol}: ${error}`)
+    }
+}
+
+/**
  * Closes all open orders and positions for a given symbol in the futures market.
  *
  * @param {string} symbol - The symbol of the position to close.
@@ -67,6 +91,7 @@ async function openPosition(request) {
     const activationPrice = (price + (order_action == 'buy' ? (price * leverage) / 100 : -(price * leverage) / 100)).toString().substring(0, Number(request.sizePricePrecision))
     console.log(activationPrice)
     try {
+        await changeLeverage(symbol, leverage)
         await closePosition(symbol)
         if (order_action == 'buy') {
             await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' }).then(res => console.log('ORDER SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('ORDER ERROR', {REQUEST: request, ERROR: err}))
