@@ -16,17 +16,17 @@ binance.options({
  */
 async function changeLeverage(symbol, leverage) {
     try {
-        await binance.futuresLeverage(symbol, leverage).then( async res => {
+        await binance.futuresLeverage(symbol, leverage).then(async res => {
             let message = ''
-            if(res.code == undefined){
-                message = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${leverage}`  
+            if (res.code == undefined) {
+                message = `Đòn bẩy cặp giao dịch ${symbol} được thay đổi thành x${leverage}`
             }
-            else{
+            else {
                 message = `Đòn bẩy cặp giao dịch ${symbol} đổi thành x${leverage} thất bại`
             }
             await sendTelegramMessage(message)
-            console.log('CHANGE LEVERAGE SUSSCES', {REQUEST: {symbol: symbol, leverage: leverage}, RESPONSE: res})
-        }).catch(err => console.log('CHANGE LEVERAGE ERROR', {REQUEST: {symbol: symbol, leverage: leverage}, ERROR: err}))
+            console.log('CHANGE LEVERAGE SUSSCES', { REQUEST: { symbol: symbol, leverage: leverage }, RESPONSE: res })
+        }).catch(err => console.log('CHANGE LEVERAGE ERROR', { REQUEST: { symbol: symbol, leverage: leverage }, ERROR: err }))
     } catch (error) {
         console.error(`Error setting leverage for ${symbol}: ${error}`)
     }
@@ -81,26 +81,66 @@ async function closePosition(symbol) {
  * @return {Promise<void>} A promise that resolves when the position is opened.
  */
 async function openPosition(request) {
-    const order_action = request.order_action
-    const symbol = request.symbol
-    const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)))
-    const callbackRate = Number(request.callbackRate)
-    const position_size_usdt = request.position_size_usdt
-    const leverage = request.leverage
-    const order_contracts = Math.floor((position_size_usdt * leverage) / price)
-    const activationPrice = (price + (order_action == 'buy' ? (price * leverage) / 100 : -(price * leverage) / 100)).toString().substring(0, Number(request.sizePricePrecision))
-    console.log(activationPrice)
+    const order_action = request.order_action;
+    const symbol = request.symbol;
+    const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)));
+    const callbackRate = Number(request.callbackRate);
+    const position_size_usdt = request.position_size_usdt;
+    const leverage = request.leverage;
+    const order_contracts = Math.floor((position_size_usdt * leverage) / price);
+    const activationPrice = (price + (order_action == 'buy' ? (price * leverage) / 100 : -(price * leverage) / 100))
+        .toString()
+        .substring(0, Number(request.sizePricePrecision));
+
+    const stopLossPrice = (order_action == 'buy'
+        ? price - (2 * price * callbackRate) / 100
+        : price + (2 * price * callbackRate) / 100)
+        .toString()
+        .substring(0, Number(request.sizePricePrecision));
+    console.log(`Price: ${price}`);
+    console.log(`Activation Price: ${activationPrice}`);
+    console.log(`Stop Loss Price: ${stopLossPrice}`);
+
     try {
-        await changeLeverage(symbol, leverage)
-        await closePosition(symbol)
+        await changeLeverage(symbol, leverage);
+        await closePosition(symbol);
+
         if (order_action == 'buy') {
-            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' }).then(res => console.log('ORDER SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('ORDER ERROR', {REQUEST: request, ERROR: err}))
-            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice}).then(res => console.log('TRAILING STOP SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('TRAILING STOP ERROR', {REQUEST: request, ERROR: err}))
+            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
+                .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
+
+            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
+                .then(res => console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
+
+            await binance.futuresSell(symbol, order_contracts, stopLossPrice, {
+                timeInForce: 'GTC',
+                stopPrice: stopLossPrice,
+                type: 'STOP'
+            })
+                .then(res => console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }));
         }
         else {
-            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' }).then(res => console.log('ORDER SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('ORDER ERROR', {REQUEST: request, ERROR: err}))
-            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice }).then(res => console.log('TRAILING STOP SUSSCES', {REQUEST: request, RESPONSE: res})).catch(err => console.log('TRAILING STOP ERROR', {REQUEST: request, ERROR: err}))
+            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
+                .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
+
+            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
+                .then(res => console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
+
+
+            await binance.futuresBuy(symbol, order_contracts, stopLossPrice, {
+                timeInForce: 'GTC',
+                stopPrice: stopLossPrice,
+                type: 'STOP'
+            })
+                .then(res => console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }));
         }
+
         await sendTelegramMessage(`Mở vị thế [${(order_action == 'buy' ? 'LONG' : 'SHORT')}] ${symbol}`);
     } catch (error) {
         console.error(`openOrderPosition$: ${error}`);
