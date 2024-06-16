@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>
+		<%= title %>
+	</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+		integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+		integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+		crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+		integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p"
+		crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+		integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+		crossorigin="anonymous"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+	<script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
+</head>
+
+<body>
+	<div class="container">
+		<!-- Content here -->
+		<ul class="nav nav-tabs" id="myTab" role="tablist">
+			<li class="nav-item" role="presentation">
+				<button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button"
+					role="tab" aria-controls="account" aria-selected="true">Cài đặt tài khoản</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link" id="telegram-tab" data-bs-toggle="tab" data-bs-target="#telegram" type="button"
+					role="tab" aria-controls="telegram" aria-selected="false">Cài đặt Telegram</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link" id="other-tab" data-bs-toggle="tab" data-bs-target="#other" type="button"
+					role="tab" aria-controls="other" aria-selected="false">Cài đặt khác</button>
+			</li>
+		</ul>
+		<div class="tab-content" id="myTabContent">
+			<div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+
+				<div class="row">
+					<div class="col-10">
+
+					</div>
+					<div class="col-2 d-flex justify-content-end">
+						<button type="button" class=" btn btn-primary" data-bs-toggle="modal"
+							data-bs-target="#exampleModal">Thêm mới</button>
+					</div>
+
+				</div>
+				<div class="row">
+					<h3>Danh sách tài khoản</h3>
+					<ul class="list-group list-group-flush" id="account-container">
+
+					</ul>
+				</div>
+			</div>
+			<div class="tab-pane fade" id="telegram" role="tabpanel" aria-labelledby="telegram-tab">
+				<div class="was-validated">
+					<div class="mb-3">
+						<label for="telegramToken" class="form-label">Telegram Token</label>
+						<textarea class="form-control is-invalid" id="telegramToken" required></textarea>
+						<div class="invalid-feedback">
+							Bắt buộc phải nhập Telegram Token
+						</div>
+					</div>
+
+					<div class="mb-3">
+						<label for="telegramChannel" class="form-label">Telegram Channel</label>
+						<textarea class="form-control is-invalid" id="telegramChannel" required></textarea>
+						<div class="invalid-feedback">
+							Bắt buộc phải nhập Telegram Channel
+						</div>
+					</div>
+
+					<div class="mb-3">
+						<button class="btn btn-primary" type="button" onclick="updateTelegramSetting()">Lưu cài đặt</button>
+					</div>
+				</div>
+			</div>
+			<div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">Cập nhật sau .............
+			</div>
+		</div>
+	</div>
+
+
+	<!-- Modal -->
+	<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content was-validated">
+				<div class="modal-header">
+					<h5 class="modal-title" id="exampleModalLabel">Thêm mới tài khoản</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<div class="mb-3">
+						<label for="accountId" class="form-label">ID tài khoản</label>
+						<p>Người dùng tự định nghĩa, sử dụng trong Alert TradingView</p>
+						<input type="text" class="form-control" id="accountId" required>
+						<div class="invalid-feedback">
+							Bắt buộc phải nhập ID tài khoản
+						</div>
+					</div>
+					<div class="mb-3">
+						<label for="accountAPIKey" class="form-label">Private Key</label>
+						<textarea class="form-control" id="accountAPIKey" rows="3" required></textarea>
+						<div class="invalid-feedback">
+							Bắt buộc phải nhập API Key
+						</div>
+					</div>
+					<div class="mb-3">
+						<label for="accountSecretKey" class="form-label">Secret Key</label>
+						<textarea class="form-control" id="accountSecretKey" rows="3" required></textarea>
+						<div class="invalid-feedback">
+							Bắt buộc phải nhập Secret Key
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+					<button type="button" class="btn btn-primary" onclick="addAccount()">Thêm mới</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Alert -->
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			fetchAccount()
+			fetchTelegramSetting()
+		});
+
+		function fetchTelegramSetting() {
+			axios.get('/telegram')
+				.then(function (response) {
+					// Assume response.data is an array of account objects
+					const setting = response.data;
+					console.log(setting);
+					document.getElementById('telegramToken').value = setting.telegramToken;
+					document.getElementById('telegramChannel').value = setting.telegramChannel;
+
+				})
+		}
+		function updateTelegramSetting() {
+			const setting = {
+				telegramToken: document.getElementById('telegramToken').value,
+				telegramChannel: document.getElementById('telegramChannel').value
+			}
+			if (setting.telegramToken == '' || setting.telegramChannel == '') return
+			axios.put('/telegram', setting)
+				.then(function (response) {
+					alert(`Cập nhật thành công`)
+				})
+		}
+		function fetchAccount() {
+			axios.get('/account')
+				.then(function (response) {
+					// Assume response.data is an array of account objects
+					const accounts = response.data;
+					const container = document.getElementById('account-container'); // The container where rows will be appended
+
+					accounts.forEach(account => {
+						let row = `
+				<li class="list-group-item">
+					<div class="row">
+						<div class="col-10">
+							<p>ID tài khoản: ${account.accountId}</p>
+						</div>
+						<div class="col-2 d-flex justify-content-end">
+							<button style="background: none; border: none;" onclick="deleteAccount(${account.accountId})">
+								<svg class="icon icon-tabler icon-tabler-trash" width="44" height="44"
+									viewBox="0 0 24 24" stroke-width="1.5" stroke="#fd0061" fill="none"
+									stroke-linecap="round" stroke-linejoin="round">
+									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+									<path d="M4 7l16 0" />
+									<path d="M10 11l0 6" />
+									<path d="M14 11l0 6" />
+									<path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+									<path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+								</svg>
+							</button>
+						</div>
+					</div>
+				</li>`;
+
+						container.insertAdjacentHTML('beforeend', row);
+					});
+				})
+				.catch(function (error) {
+					console.error("There was an error fetching the account data:", error);
+				});
+		}
+		// Function to handle account deletion
+		function deleteAccount(accountId) {
+			axios.delete(`/account/${accountId}`)
+				.then(function (response) {
+					console.log(`Account with ID ${accountId} deleted.`);
+					// Remove the corresponding list item from the DOM
+					const button = document.querySelector(`button[onclick="deleteAccount(${accountId})"]`);
+					if (button) {
+						const listItem = button.closest('.list-group-item');
+						if (listItem) {
+							listItem.remove();
+						}
+					}
+				})
+				.catch(function (error) {
+					console.error(`There was an error deleting the account with ID ${accountId}:`, error);
+				});
+		}
+		function addAccount() {
+			const accountData = {
+				accountId: document.getElementById('accountId').value,
+				accountAPIKey: document.getElementById('accountAPIKey').value,
+				accountSecretKey: document.getElementById('accountSecretKey').value
+			}
+			if (accountData.accountId == '' || accountData.accountAPIKey == '' || accountData.accountSecretKey == '') return
+			axios.post('/account', accountData)
+				.then(function (response) {
+					const newAccount = response.data; // Assuming response.data contains the newly created account details
+					console.log('New account added:', newAccount);
+
+					// Generate HTML for the new account
+					const row = `
+						<li class="list-group-item">
+							<div class="row">
+								<div class="col-10">
+									<p>ID tài khoản: ${newAccount.accountId}</p>
+								</div>
+								<div class="col-2 d-flex justify-content-end">
+									<button style="background: none; border: none;" onclick="deleteAccount(${newAccount.accountId})">
+										<svg class="icon icon-tabler icon-tabler-trash" width="44" height="44"
+											viewBox="0 0 24 24" stroke-width="1.5" stroke="#fd0061" fill="none"
+											stroke-linecap="round" stroke-linejoin="round">
+											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+											<path d="M4 7l16 0" />
+											<path d="M10 11l0 6" />
+											<path d="M14 11l0 6" />
+											<path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+											<path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+										</svg>
+									</button>
+								</div>
+							</div>
+						</li>`;
+
+					// Append the new account HTML to the account list
+					const accountList = document.getElementById('account-container');
+					accountList.innerHTML += row;
+					clearAndHideModal()
+					alert(`Thêm tài khoản thành công`)
+				})
+				.catch(function (error) {
+					console.error('Error adding new account:', error);
+				});
+		}
+		function clearAndHideModal() {
+			document.getElementById('accountId').value = '';
+			document.getElementById('accountAPIKey').value = '';
+			document.getElementById('accountSecretKey').value = '';
+		}
+
+	</script>
+</body>
+
+</html>
