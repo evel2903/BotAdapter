@@ -88,7 +88,7 @@ async function openPosition(request) {
     const position_size_usdt = request.position_size_usdt;
     const leverage = request.leverage;
     const order_contracts = Math.floor((position_size_usdt * leverage) / price);
-    const activationPrice = (price + (order_action == 'buy' ? (price * leverage) / 100 : -(price * leverage) / 100))
+    const activationPrice = (price + (order_action == 'buy' ? (price * callbackRate) / 100 : -(price * callbackRate) / 100))
         .toString()
         .substring(0, Number(request.sizePricePrecision));
 
