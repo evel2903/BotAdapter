@@ -29,7 +29,7 @@ app.use(function (req, res, next) {
 })
 
 app.use("/", indexRoute);
-app.post("/webhook", webhookRoute);
+app.post(`/${process.env.WEBHOOK_ENDPOINT}`, webhookRoute);
 app.post("/authen", async function(req, res) {
   try {
       const request = req.body
