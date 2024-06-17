@@ -71,7 +71,6 @@ typings/
 # dotenv environment variables file
 .env.test
 .env
-db.json
 
 
 .pgsync.yml
@@ -79,6 +78,7 @@ src/rest/rolls.json
 scripts/**/*.json 
 **/*.dump
 
+.db.json
 package-lock.json
 yarn.lock
 google-cloud-key.json
