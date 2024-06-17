@@ -71,7 +71,7 @@ typings/
 # dotenv environment variables file
 .env.test
 .env
-.db.json
+db.json
 
 
 .pgsync.yml
