@@ -1,12 +1,6 @@
 import Binance from 'node-binance-api';
 import { sendTelegramMessage } from '../telegram.js'
-import 'dotenv/config'
-
-const binance = new Binance();
-binance.options({
-    APIKEY: process.env.BINANCE_API_KEY,
-    APISECRET: process.env.BINANCE_SECRET_KEY
-});
+import dbContext from '../Database/dbContext.js';
 
 /**
  * Change leverage for a symbol in the futures market.
@@ -14,7 +8,7 @@ binance.options({
  * @param {string} symbol - The symbol for which to change the leverage.
  * @param {number} leverage - The leverage value to set.
  */
-async function changeLeverage(symbol, leverage) {
+async function changeLeverage(binance, symbol, leverage) {
     try {
         await binance.futuresLeverage(symbol, leverage).then(async res => {
             let message = ''
@@ -38,7 +32,7 @@ async function changeLeverage(symbol, leverage) {
  * @param {string} symbol - The symbol of the position to close.
  * @return {Promise<void>} - A promise that resolves when the position is closed.
  */
-async function closePosition(symbol) {
+async function closePosition(binance, symbol) {
     try {
         // Đóng tất cả các lệnh mở với symbol này
         const openOrders = await binance.futuresOpenOrders(symbol);
@@ -80,7 +74,7 @@ async function closePosition(symbol) {
  *   - leverage: The leverage.
  * @return {Promise<void>} A promise that resolves when the position is opened.
  */
-async function openPosition(request) {
+async function openPosition(binance, request) {
     const order_action = request.order_action;
     const symbol = request.symbol;
     const price = Number(`${request.price}`.substring(0, Number(request.sizePricePrecision)));
@@ -102,8 +96,8 @@ async function openPosition(request) {
     console.log(`Stop Loss Price: ${stopLossPrice}`);
 
     try {
-        await changeLeverage(symbol, leverage);
-        await closePosition(symbol);
+        await changeLeverage(binance, symbol, leverage);
+        await closePosition(binance, symbol);
 
         if (order_action == 'buy') {
             await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
@@ -149,8 +143,16 @@ async function openPosition(request) {
 export const webhookRoute = async (req, res) => {
     try {
         const alert = req.body
-        await openPosition(alert)
+        const accountId = alert.accountId
 
+        await dbContext.GetAccountByAccountId(accountId).then(async account => {
+            const binance = new Binance();
+            binance.options({
+                APIKEY: account.accountAPIKey,
+                APISECRET: account.accountSecretKey
+            });
+            await openPosition(binance, alert)
+        })
     }
     catch (error) {
         console.error(`handleWebhook$: ${error}`);
