@@ -79,6 +79,7 @@ scripts/**/*.json
 **/*.dump
 
 .db.json
+db.json
 package-lock.json
 yarn.lock
 google-cloud-key.json
