@@ -62,7 +62,7 @@
 				<div class="was-validated">
 					<div class="mb-3">
 						<label for="telegramToken" class="form-label">Telegram Token</label>
-						<textarea class="form-control is-invalid" id="telegramToken" required></textarea>
+						<textarea class="form-control is-invalid" id="telegramToken" required autocomplete="off"></textarea>
 						<div class="invalid-feedback">
 							Bắt buộc phải nhập Telegram Token
 						</div>
@@ -70,14 +70,15 @@
 
 					<div class="mb-3">
 						<label for="telegramChannel" class="form-label">Telegram Channel</label>
-						<textarea class="form-control is-invalid" id="telegramChannel" required></textarea>
+						<textarea class="form-control is-invalid" id="telegramChannel" required autocomplete="off"></textarea>
 						<div class="invalid-feedback">
 							Bắt buộc phải nhập Telegram Channel
 						</div>
 					</div>
 
 					<div class="mb-3">
-						<button class="btn btn-primary" type="button" onclick="updateTelegramSetting()">Lưu cài đặt</button>
+						<button class="btn btn-primary" type="button" onclick="updateTelegramSetting()">Lưu cài
+							đặt</button>
 					</div>
 				</div>
 			</div>
@@ -99,21 +100,21 @@
 					<div class="mb-3">
 						<label for="accountId" class="form-label">ID tài khoản</label>
 						<p>Người dùng tự định nghĩa, sử dụng trong Alert TradingView</p>
-						<input type="text" class="form-control" id="accountId" required>
+						<input type="text" class="form-control" id="accountId" required autocomplete="off">
 						<div class="invalid-feedback">
 							Bắt buộc phải nhập ID tài khoản
 						</div>
 					</div>
 					<div class="mb-3">
 						<label for="accountAPIKey" class="form-label">API Key</label>
-						<textarea class="form-control" id="accountAPIKey" rows="3" required></textarea>
+						<textarea class="form-control" id="accountAPIKey" rows="3" required autocomplete="off"></textarea>
 						<div class="invalid-feedback">
 							Bắt buộc phải nhập API Key
 						</div>
 					</div>
 					<div class="mb-3">
 						<label for="accountSecretKey" class="form-label">Secret Key</label>
-						<textarea class="form-control" id="accountSecretKey" rows="3" required></textarea>
+						<textarea class="form-control" id="accountSecretKey" rows="3" required autocomplete="off"></textarea>
 						<div class="invalid-feedback">
 							Bắt buộc phải nhập Secret Key
 						</div>
@@ -127,15 +128,86 @@
 		</div>
 	</div>
 
-	<!-- Alert -->
+	<!-- Login -->
+	<!-- Modal -->
+	<div class="modal" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+		aria-labelledby="staticBackdropLabel" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content was-validated">
+				<div class="modal-header">
+					<h5 class="modal-title" id="staticBackdropLabel">Xác thực người dùng</h5>
+				</div>
+				<div class="modal-body">
+					<div class="mb-3">
+						<label for="apiKey" class="form-label">API Key</label>
+						<input type="text" class="form-control" id="apiKey" required autocomplete="off">
+						<div class="invalid-feedback">
+							Bắt buộc phải nhập API Key
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" id="login-hide-btn" class="btn btn-secondary d-none"
+						data-bs-dismiss="modal">Close</button>
+					<button onclick="login()" type="button" class="btn btn-primary">Xác thực</button>
+				</div>
+			</div>
+		</div>
+	</div>
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
-			fetchAccount()
-			fetchTelegramSetting()
+			showLogin()
 		});
+		function showLogin() {
+			if (sessionStorage.getItem('apiKey') == null || sessionStorage.getItem('apiKey') == '' || sessionStorage.getItem('apiKey') == undefined) {
+				var myModal = new bootstrap.Modal(document.getElementById('staticBackdrop'), {
+					backdrop: 'static',
+					keyboard: false
+				});
+				myModal.show();
+				return
+			}
+			else {
+				const apiKey = sessionStorage.getItem('apiKey')
+				axios.post('/authen', { apiKey: apiKey })
+					.then(function (response) {
+						fetchAccount()
+						fetchTelegramSetting()
+					})
+					.catch(function (error) {
+						var myModal = new bootstrap.Modal(document.getElementById('staticBackdrop'), {
+							backdrop: 'static',
+							keyboard: false
+						});
+						myModal.show();
+					})
+			}
+
+		}
+		function login() {
+			const apiKey = document.getElementById('apiKey').value
+			if (apiKey == '') return
+			axios.post('/authen', { apiKey: apiKey })
+				.then(function (response) {
+					sessionStorage.setItem('apiKey', response.data.apiKey);
+					alert(`Xác thực người dùng thành công`)
+					fetchAccount()
+					fetchTelegramSetting()
+					document.getElementById('apiKey').value = ''
+					$('#login-hide-btn').click()
+				})
+				.catch(function (error) {
+					alert(`Sai API key, Xác thực thất bại`)
+				})
+
+		}
 
 		function fetchTelegramSetting() {
-			axios.get('/telegram')
+			axios.get('/telegram', {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
 				.then(function (response) {
 					// Assume response.data is an array of account objects
 					const setting = response.data;
@@ -151,13 +223,21 @@
 				telegramChannel: document.getElementById('telegramChannel').value
 			}
 			if (setting.telegramToken == '' || setting.telegramChannel == '') return
-			axios.put('/telegram', setting)
+			axios.put('/telegram', setting, {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
 				.then(function (response) {
 					alert(`Cập nhật thành công`)
 				})
 		}
 		function fetchAccount() {
-			axios.get('/account')
+			axios.get('/account', {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
 				.then(function (response) {
 					// Assume response.data is an array of account objects
 					const accounts = response.data;
@@ -196,7 +276,11 @@
 		}
 		// Function to handle account deletion
 		function deleteAccount(accountId) {
-			axios.delete(`/account/${accountId}`)
+			axios.delete(`/account/${accountId}`, {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
 				.then(function (response) {
 					console.log(`Account with ID ${accountId} deleted.`);
 					// Remove the corresponding list item from the DOM
@@ -219,7 +303,11 @@
 				accountSecretKey: document.getElementById('accountSecretKey').value
 			}
 			if (accountData.accountId == '' || accountData.accountAPIKey == '' || accountData.accountSecretKey == '') return
-			axios.post('/account', accountData)
+			axios.post('/account', accountData, {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
 				.then(function (response) {
 					const newAccount = response.data; // Assuming response.data contains the newly created account details
 					console.log('New account added:', newAccount);

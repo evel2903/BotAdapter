@@ -22,12 +22,44 @@ app.use(bodyParser.json());
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+app.use(function (req, res, next) {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, API-Key')
+  next()
+})
+
 app.use("/", indexRoute);
+app.post("/webhook", webhookRoute);
+app.post("/authen", async function(req, res) {
+  try {
+      const request = req.body
+      if (request.apiKey !== process.env.API_KEY) {
+        res.status(401).json({ error: 'Unauthorized' })
+      }
+      else{
+        res.status(200).json({ apiKey: request.apiKey })
+      }
+    }
+    catch(error){
+      console.log(error)
+    }
+})
+
+app.use((req, res, next) => {
+  const apiKey = req.get('API-Key')
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    res.status(401).json({ error: 'Unauthorized' })
+  } else {
+    next()
+  }
+})
+
+
 
 app.use("/telegram", telegramRoute)
 app.use("/account", accountRoute)
 
-app.post("/webhook", webhookRoute);
+
 
 // errors & edge cases
 app.use((err, req, res, _) => {
