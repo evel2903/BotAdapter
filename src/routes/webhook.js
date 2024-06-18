@@ -108,13 +108,13 @@ async function openPosition(binance, request) {
                 .then(res => console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
 
-            await binance.futuresSell(symbol, order_contracts, stopLossPrice, {
-                timeInForce: 'GTC',
+            await binance.futuresMarketSell(symbol, order_contracts, {
+                type: "STOP_MARKET",
                 stopPrice: stopLossPrice,
-                type: 'STOP'
+                priceProtect: true
             })
                 .then(res => console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res }))
-                .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }));
+                .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }))
         }
         else {
             await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
@@ -125,11 +125,10 @@ async function openPosition(binance, request) {
                 .then(res => console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
 
-
-            await binance.futuresBuy(symbol, order_contracts, stopLossPrice, {
-                timeInForce: 'GTC',
+            await binance.futuresMarketBuy(symbol, order_contracts, {
+                type: "STOP_MARKET",
                 stopPrice: stopLossPrice,
-                type: 'STOP'
+                priceProtect: true
             })
                 .then(res => console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }));

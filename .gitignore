@@ -78,7 +78,6 @@ src/rest/rolls.json
 scripts/**/*.json 
 **/*.dump
 
-.db.json
 db.json
 package-lock.json
 yarn.lock
