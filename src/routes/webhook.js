@@ -1,6 +1,7 @@
 import Binance from 'node-binance-api';
 import { sendTelegramMessage } from '../telegram.js'
 import dbContext from '../Database/dbContext.js';
+import WebSocket from 'ws';
 
 /**
  * Change leverage for a symbol in the futures market.
@@ -99,21 +100,30 @@ async function openPosition(binance, request) {
         await changeLeverage(binance, symbol, leverage);
         await closePosition(binance, symbol);
 
+        let trailingStopOrder;
+        let stopLossOrder;
+
         if (order_action == 'buy') {
             await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
                 .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
 
-            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
-                .then(res => console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res }))
+            trailingStopOrder = await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
+                .then(res => {
+                    console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res })
+                    return res
+                })
                 .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
 
-            await binance.futuresMarketSell(symbol, order_contracts, {
+                stopLossOrder = await binance.futuresMarketSell(symbol, order_contracts, {
                 type: "STOP_MARKET",
                 stopPrice: stopLossPrice,
                 priceProtect: true
             })
-                .then(res => console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .then(res => {
+                    console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res })
+                    return res
+                })
                 .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }))
         }
         else {
@@ -121,20 +131,45 @@ async function openPosition(binance, request) {
                 .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
 
-            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
-                .then(res => console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res }))
+            trailingStopOrder = await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
+                .then(res => {
+                    console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res })
+                    return res
+                })
                 .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
 
-            await binance.futuresMarketBuy(symbol, order_contracts, {
+            stopLossOrder = await binance.futuresMarketBuy(symbol, order_contracts, {
                 type: "STOP_MARKET",
                 stopPrice: stopLossPrice,
                 priceProtect: true
             })
-                .then(res => console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res }))
+                .then(res => {
+                    console.log('STOP LOSS SUCCESS', { REQUEST: request, RESPONSE: res })
+                    return res
+                })
                 .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }));
         }
 
         await sendTelegramMessage(`Mở vị thế [${(order_action == 'buy' ? 'LONG' : 'SHORT')}] ${symbol}`);
+
+        const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol.toLowerCase()}@markPrice`);
+        
+        ws.on('message', async (data) => {
+            const message = JSON.parse(data);
+            console.log(`Start WebSocket ${symbol} Trailing Activation Price = ${activationPrice}, Stop Loss Price ${stopLossPrice}`);
+            // Check if the trailing stop order has been filled
+            if (message.e === 'markPriceUpdate' && message.p === activationPrice) {
+                console.log('Trailing stop triggered, cancelling stop loss order');
+                
+                // Cancel the stop loss order
+                await binance.futuresCancelOrder(symbol, { orderId: stopLossOrder.orderId })
+                    .then(res => console.log('STOP LOSS CANCEL SUCCESS', { RESPONSE: res }))
+                    .catch(err => console.log('STOP LOSS CANCEL ERROR', { ERROR: err }));
+
+                // Close the WebSocket connection
+                ws.close();
+            }
+        });
     } catch (error) {
         console.error(`openOrderPosition$: ${error}`);
     }
@@ -159,3 +194,28 @@ export const webhookRoute = async (req, res) => {
     }
     return res.json({ message: "ok" });
 };
+// export const webhookRoute = async (req, res) => {
+//     try {
+//         const alert = req.body
+//         const accountList = alert.accountList
+
+//         // Tạo một mảng các promises để thực thi đồng thời
+//         const promises = accountList.map(async acc => {
+//             const account = await dbContext.GetAccountByAccountId(acc);
+//             const binance = new Binance();
+//             binance.options({
+//                 APIKEY: account.accountAPIKey,
+//                 APISECRET: account.accountSecretKey
+//             });
+//             await openPosition(binance, alert);
+//         });
+
+//         // Đợi tất cả promises hoàn thành
+//         await Promise.all(promises);
+//     }
+//     catch (error) {
+//         console.error(`handleWebhook$: ${error}`);
+//         await sendTelegramMessage(`handleWebhook$: ${error}`)
+//     }
+//     return res.json({ message: "ok" });
+// };

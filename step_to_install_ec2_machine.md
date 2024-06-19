@@ -68,4 +68,5 @@ sudo nginx -t
 Restart Nginx:
 
 ```
+sudo systemctl restart nginx
 ```

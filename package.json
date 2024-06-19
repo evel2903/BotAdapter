@@ -20,7 +20,8 @@
     "http": "0.0.1-security",
     "http-errors": "^2.0.0",
     "node-binance-api": "^0.13.1",
-    "node-json-db": "^2.3.0"
+    "node-json-db": "^2.3.0",
+    "ws": "^8.17.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.15.4",
