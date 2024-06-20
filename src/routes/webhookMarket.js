@@ -104,7 +104,7 @@ async function openPosition(binance, request) {
         let stopLossOrder;
 
         if (order_action == 'buy') {
-            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
+            await binance.futuresMarketBuy(symbol, order_contracts)
                 .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
 
@@ -127,7 +127,7 @@ async function openPosition(binance, request) {
                 .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }))
         }
         else {
-            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'LIMIT' })
+            await binance.futuresMarketSell(symbol, order_contracts)
                 .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
 
@@ -157,11 +157,9 @@ async function openPosition(binance, request) {
         ws.on('message', async (data) => {
             const positionRisk = await binance.futuresPositionRisk();
             const position = positionRisk.find(x => x.symbol === symbol);
-            const openOrders = await binance.futuresOpenOrders(symbol);
-            const order = openOrders.find(x => x.type === "LIMIT")
-            if (position.positionAmt == 0 && (order == undefined || order == null)) {
+            if (position.positionAmt == 0) {
                 console.log(`Không có lệnh order,  không có vị thế của ${symbol}, cần đóng lệnh`);
-                await closePosition(symbol)
+                await closePosition(binance, symbol)
                 ws.close();
             }
             else{
@@ -172,7 +170,7 @@ async function openPosition(binance, request) {
         console.error(`openOrderPosition$: ${error}`);
     }
 }
-export const webhookRoute = async (req, res) => {
+export const webhookRouteMarket = async (req, res) => {
     try {
         const alert = req.body
         const accountId = alert.accountId
