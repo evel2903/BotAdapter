@@ -155,19 +155,17 @@ async function openPosition(binance, request) {
         const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol.toLowerCase()}@markPrice`);
         
         ws.on('message', async (data) => {
-            const message = JSON.parse(data);
-            console.log(`Start WebSocket ${symbol} Trailing Activation Price = ${activationPrice}, Stop Loss Price ${stopLossPrice}`);
-            // Check if the trailing stop order has been filled
-            if (message.e === 'markPriceUpdate' && message.p === activationPrice) {
-                console.log('Trailing stop triggered, cancelling stop loss order');
-                
-                // Cancel the stop loss order
-                await binance.futuresCancelOrder(symbol, { orderId: stopLossOrder.orderId })
-                    .then(res => console.log('STOP LOSS CANCEL SUCCESS', { RESPONSE: res }))
-                    .catch(err => console.log('STOP LOSS CANCEL ERROR', { ERROR: err }));
-
-                // Close the WebSocket connection
+            const positionRisk = await binance.futuresPositionRisk();
+            const position = positionRisk.find(x => x.symbol === symbol);
+            const openOrders = await binance.futuresOpenOrders(symbol);
+            const order = openOrders.find(x => x.type === "LIMIT")
+            if (position.positionAmt == 0 && (order == undefined || order == null)) {
+                console.log(`Không có lệnh order,  không có vị thế của ${symbol}, cần đóng lệnh`);
+                await closePosition(symbol)
                 ws.close();
+            }
+            else{
+                console.log(`Còn vị thế, hoặc lệnh Limit của ${symbol}, bỏ qua`);
             }
         });
     } catch (error) {
