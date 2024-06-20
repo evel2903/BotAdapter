@@ -8,7 +8,12 @@ const insertAccount = async (accout) =>{
     await db.push("/Account[]", accout, true);
 } 
 const getAccount = async () => {
-    return await db.getData("/Account");
+    try{
+        return await db.getData("/Account");
+    }
+    catch{
+        return []
+    }
 }
 const deleteAccount = async (id) => {
     let index = await db.getIndex("/Account", id, "accountId");
@@ -20,14 +25,37 @@ const getAccountByAccountId = async (id) =>{
     return await db.getData(`/Account[${index}]`);
 }
 
-const updateTelegramSetting = async (setting) => {
-    await db.push('/TelegramSetting', setting)
+// -- Telegram
+const updateTelegramSetting = async (teleSetting) => {
+    await db.push('/TelegramSetting', teleSetting)
 }
 
 const getTelegramSetting = async () => {
-    return await db.getData("/TelegramSetting");
+    try{
+        return await db.getData("/TelegramSetting");
+    }
+    catch{
+        return {
+            "telegramToken":"",
+            "telegramChannel":""
+         }
+    }
 }
 
+// -- Setting
+const updateSetting = async (setting) => {
+    await db.push('/Setting', setting)
+}
+const getSetting = async () => {
+    try{
+        return await db.getData("/Setting");
+    }
+    catch{
+        return {
+            "typeOrder":"LIMIT"
+         }
+    }
+}
 
 export default{
     GetAccount: getAccount,
@@ -37,4 +65,7 @@ export default{
 
     GetTelegramSetting: getTelegramSetting,
     UpdateTelegramSetting: updateTelegramSetting,
+
+    GetSetting: getSetting,
+    UpdateSetting: updateSetting,
 }

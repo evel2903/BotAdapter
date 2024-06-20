@@ -82,7 +82,23 @@
 					</div>
 				</div>
 			</div>
-			<div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">Cập nhật sau .............
+			<div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">
+				<div class="was-validated">
+					<div class="mb-3">
+						<label for="typeOrder" class="form-label">Chọn Type Order</label>
+						<select class="form-select" id="typeOrder">
+							<option value="LIMIT" selected>LIMIT</option>
+							<option value="MARKET">MARKET</option>
+						  </select>
+						<div class="invalid-feedback">
+							Bắt buộc phải chọn Type Order
+						</div>
+					</div>
+
+					<div class="mb-3">
+						<button class="btn btn-primary" type="button" onclick="updateSetting()">Lưu cài đặt</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -173,6 +189,7 @@
 					.then(function (response) {
 						fetchAccount()
 						fetchTelegramSetting()
+						fetchSetting()
 					})
 					.catch(function (error) {
 						var myModal = new bootstrap.Modal(document.getElementById('staticBackdrop'), {
@@ -193,6 +210,7 @@
 					alert(`Xác thực người dùng thành công`)
 					fetchAccount()
 					fetchTelegramSetting()
+					fetchSetting()
 					document.getElementById('apiKey').value = ''
 					$('#login-hide-btn').click()
 				})
@@ -224,6 +242,33 @@
 			}
 			if (setting.telegramToken == '' || setting.telegramChannel == '') return
 			axios.put('/telegram', setting, {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
+				.then(function (response) {
+					alert(`Cập nhật thành công`)
+				})
+		}
+		function fetchSetting() {
+			axios.get('/setting', {
+				headers: {
+					'API-Key': sessionStorage.getItem('apiKey')
+				}
+			})
+				.then(function (response) {
+					// Assume response.data is an array of account objects
+					const setting = response.data;
+					console.log(setting);
+					document.getElementById('typeOrder').value = setting.typeOrder;
+				})
+		}
+		function updateSetting() {
+			const setting = {
+				typeOrder: document.getElementById('typeOrder').value
+			}
+			if (setting.typeOrder == '') return
+			axios.put('/setting', setting, {
 				headers: {
 					'API-Key': sessionStorage.getItem('apiKey')
 				}

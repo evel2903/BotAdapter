@@ -7,8 +7,10 @@ import { dirname } from 'path';
 import indexRoute from './routes/index.js'
 import telegramRoute from './routes/telegram.js'
 import accountRoute from './routes/account.js'
+import settingRoute from './routes/setting.js'
 import { webhookRouteLimit } from "./routes/webhookLimit.js";
 import { webhookRouteMarket } from "./routes/webhookMarket.js";
+import dbContext from "./Database/dbContext.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,7 +28,10 @@ app.set('view engine', 'ejs');
 
 
 app.use("/", indexRoute);
-app.post(`/${process.env.WEBHOOK_ENDPOINT}`,  process.env.TYPE_ORDER == 'LIMIT' ? webhookRouteLimit : webhookRouteMarket);
+app.post(`/${process.env.WEBHOOK_ENDPOINT}`, async  (req,res) => {
+  const setting = await dbContext.GetSetting() || 'LIMIT'
+  setting.typeOrder === 'MARKET' ? webhookRouteMarket(req,res) : webhookRouteLimit(req,res)
+});
 app.post("/authen", async function(req, res) {
   try {
       const request = req.body
@@ -59,7 +64,7 @@ app.use((req, res, next) => {
 
 app.use("/telegram", telegramRoute)
 app.use("/account", accountRoute)
-
+app.use("/setting", settingRoute)
 
 
 // errors & edge cases
