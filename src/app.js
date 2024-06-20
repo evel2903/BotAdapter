@@ -26,8 +26,7 @@ app.set('view engine', 'ejs');
 
 
 app.use("/", indexRoute);
-app.post(`/Limit${process.env.WEBHOOK_ENDPOINT}`, webhookRouteLimit);
-app.post(`/Market${process.env.WEBHOOK_ENDPOINT}`, webhookRouteMarket);
+app.post(`/${process.env.WEBHOOK_ENDPOINT}`,  process.env.TYPE_ORDER == 'LIMIT' ? webhookRouteLimit : webhookRouteMarket);
 app.post("/authen", async function(req, res) {
   try {
       const request = req.body
