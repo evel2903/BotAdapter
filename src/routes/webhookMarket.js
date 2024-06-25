@@ -82,6 +82,8 @@ async function openPosition(binance, request) {
     const callbackRate = Number(request.callbackRate);
     const position_size_usdt = request.position_size_usdt;
     const leverage = request.leverage;
+    const takeProfitRate = Number(request.takeProfitRate);
+
     const order_contracts = Math.floor((position_size_usdt * leverage) / price);
     const activationPrice = (price + (order_action == 'buy' ? (price * callbackRate) / 100 : -(price * callbackRate) / 100))
         .toString()
@@ -92,30 +94,35 @@ async function openPosition(binance, request) {
         : price + (2 * price * callbackRate) / 100)
         .toString()
         .substring(0, Number(request.sizePricePrecision));
+
+    const takeProfitPrice = (order_action == 'buy'
+        ? price + (price * takeProfitRate) / 100
+        : price - (price * takeProfitRate) / 100)
+        .toString()
+        .substring(0, Number(request.sizePricePrecision));
+
     console.log(`Price: ${price}`);
     console.log(`Activation Price: ${activationPrice}`);
     console.log(`Stop Loss Price: ${stopLossPrice}`);
+    console.log(`Take Profit Price: ${takeProfitPrice}`);
 
     try {
         await changeLeverage(binance, symbol, leverage);
         await closePosition(binance, symbol);
-
-        let trailingStopOrder;
-        let stopLossOrder;
 
         if (order_action == 'buy') {
             await binance.futuresMarketBuy(symbol, order_contracts)
                 .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
 
-            trailingStopOrder = await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
+            await binance.futuresSell(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
                 .then(res => {
                     console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res })
                     return res
                 })
                 .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
 
-                stopLossOrder = await binance.futuresMarketSell(symbol, order_contracts, {
+            await binance.futuresMarketSell(symbol, order_contracts, {
                 type: "STOP_MARKET",
                 stopPrice: stopLossPrice,
                 priceProtect: true
@@ -125,20 +132,32 @@ async function openPosition(binance, request) {
                     return res
                 })
                 .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }))
+
+            if (takeProfitRate != 0) {
+                await binance.futuresMarketSell(symbol, order_contracts, {
+                    type: "TAKE_PROFIT_MARKET",
+                    stopPrice: takeProfitPrice,
+                    priceProtect: true
+                }).then(res => {
+                    console.log('TAKE PROFIT SUCCESS', { REQUEST: request, RESPONSE: res })
+                    return res
+                })
+                    .catch(err => console.log('TAKE PROFIT ERROR', { REQUEST: request, ERROR: err }))
+            }
         }
         else {
             await binance.futuresMarketSell(symbol, order_contracts)
                 .then(res => console.log('ORDER SUCCESS', { REQUEST: request, RESPONSE: res }))
                 .catch(err => console.log('ORDER ERROR', { REQUEST: request, ERROR: err }));
 
-            trailingStopOrder = await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
+            await binance.futuresBuy(symbol, order_contracts, price, { timeInForce: 'GTC', type: 'TRAILING_STOP_MARKET', callbackRate: callbackRate, activationPrice: activationPrice })
                 .then(res => {
                     console.log('TRAILING STOP SUCCESS', { REQUEST: request, RESPONSE: res })
                     return res
                 })
                 .catch(err => console.log('TRAILING STOP ERROR', { REQUEST: request, ERROR: err }));
 
-            stopLossOrder = await binance.futuresMarketBuy(symbol, order_contracts, {
+            await binance.futuresMarketBuy(symbol, order_contracts, {
                 type: "STOP_MARKET",
                 stopPrice: stopLossPrice,
                 priceProtect: true
@@ -148,12 +167,25 @@ async function openPosition(binance, request) {
                     return res
                 })
                 .catch(err => console.log('STOP LOSS ERROR', { REQUEST: request, ERROR: err }));
+
+            if (takeProfitRate != 0) {
+                await binance.futuresMarketBuy(symbol, order_contracts, {
+                    type: "TAKE_PROFIT_MARKET",
+                    stopPrice: takeProfitPrice,
+                    priceProtect: true
+                })
+                    .then(res => {
+                        console.log('TAKE PROFIT SUCCESS', { REQUEST: request, RESPONSE: res })
+                        return res
+                    })
+                    .catch(err => console.log('TAKE PROFIT ERROR', { REQUEST: request, ERROR: err }))
+            }
         }
 
         await sendTelegramMessage(`Mở vị thế [${(order_action == 'buy' ? 'LONG' : 'SHORT')}] ${symbol}`);
 
         const ws = new WebSocket(`wss://fstream.binance.com/ws/${symbol.toLowerCase()}@markPrice`);
-        
+
         ws.on('message', async (data) => {
             const positionRisk = await binance.futuresPositionRisk();
             const position = positionRisk.find(x => x.symbol === symbol);
@@ -162,7 +194,7 @@ async function openPosition(binance, request) {
                 await closePosition(binance, symbol)
                 ws.close();
             }
-            else{
+            else {
                 console.log(`Còn vị thế, hoặc lệnh Limit của ${symbol}, bỏ qua`);
             }
         });
